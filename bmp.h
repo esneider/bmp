@@ -8,67 +8,69 @@
 #define _BMP_H_
 
 #include <stdint.h>
-#include "utils.h"
 
 
-typedef struct {
-    uint8_t r,g,b;
-} RGBcolor;
+struct bitmap_info;
 
 
-typedef struct BitMapInfo BitMapInfo;
+struct rgba_color {
+
+    uint8_t a;
+	uint8_t r;
+    uint8_t g;
+    uint8_t b;
+};
 
 
-typedef struct {
-    int width;
-    int height;
-    RGBcolor** bitmap;
-    BitMapInfo*  info;
-} BitMap;
+struct bitmap {
 
+	size_t width;
+	size_t height;
 
-/**
- * Returns an empty BitMap struct of the given size
- *
- * @param width   the width of the bmp
- * @param height  the height of the bmp
- *
- * @return a pointer to a BitMap struct, or NULL if an error ocurred
- */
-
-BitMap* new_bmp( uint width, uint height );
+	struct rgba_color **bitmap;
+	struct bitmap_info *info;
+};
 
 
 /**
- * Frees the memory allocated for a BitMap
+ * Creates a color bitmap
  *
- * @param bmp  a pointer to the BitMap struct
+ * @param width   nonzero width of the bitmap
+ * @param height  nonzero height of the bitmap
+ *
+ * @return a pointer to a bitmap struct, or NULL if an error ocurred
  */
+struct bitmap* new_bmp(size_t width, size_t height);
 
-void free_bmp( BitMap* bmp );
+
+/**
+ * Frees the memory allocated for a bitmap
+ *
+ * @param bmp  pointer to the bitmap struct
+ */
+void free_bmp(struct bitmap *bmp);
 
 
 /**
  * Reads a bmp file
  *
- * @param file_name  the name of the bmp file
+ * @param file_name  name of the bmp file
  *
- * @return a pointer to a BitMap struct, or NULL if an error ocurred
+ * @return a pointer to a bitmap struct, or NULL if an error ocurred
  */
-
-BitMap* read_bmp( char* file_name );
+struct bitmap* read_bmp(char *file_name);
 
 
 /**
- * Writes a bmp file
+ * Writes a 24-bit color bmp file
  *
- * @param bmp        a pointer to the BitMap struct
- * @param file_name  the name of the bmp file
+ * @param bmp        pointer to the bitmap struct
+ * @param file_name  name of the bmp file
  *
  * @return 0 if the operation was succesful, or !=0 if an error ocurred
  */
+/* int write_bmp(struct bitmap *bmp, char *file_name); */
 
-int write_bmp( BitMap* bmp, char* file_name );
 
+#endif /* _BMP_H_ */
 
-#endif
