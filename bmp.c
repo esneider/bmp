@@ -12,93 +12,12 @@
 #include "bmp.h"
 
 
-/* Bitmap compression types */
+/* Utils */
 
-enum bitmap_compression {
+static inline int min(int a, int b) {
 
-    C_RGB,
-    C_RLE8,
-    C_RLE4,
-    C_BITFIELDS,
-    C_JPEG,
-    C_PNG,
-    C_ALPHABITFIELDS
-};
-
-
-/* Bitmap header structure */
-
-struct bitmap_info {
-
-    struct bmp_header {
-
-        uint16_t padding;
-        uint16_t magic_signature;
-        uint32_t file_size;
-        uint32_t reserved;
-        uint32_t bitmap_offset;
-
-    } bmp;
-
-    struct dib_header {
-
-        uint32_t header_size;
-        int32_t  bitmap_width;
-        int32_t  bitmap_height;
-        uint16_t color_planes;
-        uint16_t bits_per_pixel;
-        uint32_t compression;
-        uint32_t bitmap_size;
-        int32_t  x_pixels_per_meter;
-        int32_t  y_pixels_per_meter;
-        uint32_t used_colors;
-        uint32_t important_colors;
-
-    } dib;
-
-    struct v3_header {
-
-        uint32_t red_mask;
-        uint32_t green_mask;
-        uint32_t blue_mask;
-        uint32_t alpha_mask;
-
-    } v3;
-
-    struct rgba_color *colors;
-};
-
-
-/* Default data */
-
-static const struct bitmap_info default_info = {
-
-    .bmp = {
-        .magic_signature = 19778,
-        .file_size = 0, /* fill me */
-        .reserved = 0,
-        .bitmap_offset = 54
-    },
-
-    .dib = {
-        .header_size = 40,
-        .bitmap_width = 0, /* fill me */
-        .bitmap_height = 0, /* fill me */
-        .color_planes = 1,
-        .bits_per_pixel = 32,
-        .compression = 0,
-        .bitmap_size = 0, /* fill me */
-        .x_pixels_per_meter = 2835,
-        .y_pixels_per_meter = 2835,
-        .used_colors = 0,
-        .important_colors = 0
-    },
-
-    .colors = NULL
-};
-
-
-/* Reverse endianness */
+    return a < b ? a : b;
+}
 
 static inline void reverse_bytes(uint32_t *n) {
 
@@ -108,13 +27,6 @@ static inline void reverse_bytes(uint32_t *n) {
 static inline void reverse_words(uint32_t *n) {
 
     *n = (*n >> 16) | (*n << 16);
-}
-
-/* Basic math */
-
-static inline int min(int a, int b) {
-
-    return a < b ? a : b;
 }
 
 /* Useful sizes */
@@ -135,6 +47,42 @@ static inline void set_file_size(struct bitmap_info *info) {
 }
 
 
+/* Default data */
+
+static const struct bitmap_info default_info = {
+
+    .bmp = {
+        .magic_signature = 19778,
+        .file_size = 0, /* fill me */
+        .reserved = 0,
+        .bitmap_offset = 54,
+    },
+
+    .dib = {
+        .header_size = 40,
+        .bitmap_width = 0, /* fill me */
+        .bitmap_height = 0, /* fill me */
+        .color_planes = 1,
+        .bits_per_pixel = 32,
+        .compression = BMPC_RGB,
+        .bitmap_size = 0, /* fill me */
+        .x_pixels_per_meter = 2835,
+        .y_pixels_per_meter = 2835,
+        .used_colors = 0,
+        .important_colors = 0,
+    },
+
+    .v3 = {
+        .red_mask = 0,
+        .green_mask = 0,
+        .blue_mask = 0,
+        .alpha_mask = 0,
+    },
+
+    .colors = NULL,
+};
+
+
 /**
  * Creates a bitmap
  *
@@ -145,12 +93,12 @@ static inline void set_file_size(struct bitmap_info *info) {
  */
 struct bitmap* new_bmp(size_t width, size_t height) {
 
-	struct bitmap *bmp = calloc(1, sizeof(*bmp));
+    struct bitmap *bmp = calloc(1, sizeof(*bmp));
 
     if (width && height && bmp)
-	if ((bmp->info      = malloc(sizeof(*bmp->info))))
-	if ((bmp->bitmap    = malloc(height * sizeof(*bmp->bitmap))))
-	if ((bmp->bitmap[0] = malloc(height * width * sizeof(*bmp->bitmap[0])))) {
+    if ((bmp->info      = malloc(sizeof(*bmp->info))))
+    if ((bmp->bitmap    = malloc(height * sizeof(*bmp->bitmap))))
+    if ((bmp->bitmap[0] = malloc(height * width * sizeof(*bmp->bitmap[0])))) {
 
         /* Init bmp->bitmap */
 
@@ -190,21 +138,23 @@ struct bitmap* new_bmp(size_t width, size_t height) {
  */
 void free_bmp(struct bitmap *bmp) {
 
-	if (bmp) {
+    if (bmp) {
 
         if (bmp->bitmap) free(bmp->bitmap[0]);
-		if (bmp->info) free(bmp->info->colors);
+        if (bmp->info) free(bmp->info->colors);
 
-		free(bmp->bitmap);
-		free(bmp->info);
-		free(bmp);
-	}
+        free(bmp->bitmap);
+        free(bmp->info);
+        free(bmp);
+    }
 }
 
 
 static bool process_image(struct bitmap *bmp, uint8_t *buffer) {
 
     // TODO: if ((int32_t)bmp->info.dib.bitmap_height < 0) { dar vuelta }
+    // TODO: compression
+    // TODO: 32-bits BMP could be way faster
 
     size_t padding = row_bits(bmp->info);
 
@@ -255,7 +205,7 @@ static bool process_image(struct bitmap *bmp, uint8_t *buffer) {
     /* Update header */
 
     bmp->info->dib.bits_per_pixel = 24;
-    bmp->info->dib.compression = C_RGB;
+    bmp->info->dib.compression = BMPC_RGB;
     bmp->info->dib.used_colors = 0;
     bmp->info->dib.important_colors = 0;
 
@@ -281,9 +231,9 @@ static bool process_image(struct bitmap *bmp, uint8_t *buffer) {
  */
 struct bitmap* read_bmp(char* file_name) {
 
-	struct bitmap_info *info = malloc(sizeof(*info));
+    struct bitmap_info *info = malloc(sizeof(*info));
 
-	FILE *file = fopen(file_name, "rb");
+    FILE *file = fopen(file_name, "rb");
 
     struct bitmap *bmp = NULL;
 
@@ -291,9 +241,9 @@ struct bitmap* read_bmp(char* file_name) {
 
     /* Read headers */
 
-	if (file && info)
+    if (file && info)
 
-	if (fread(&info->bmp.magic_signature, SZ_BMPH + 4, 1, file))
+    if (fread(&info->bmp.magic_signature, SZ_BMPH + 4, 1, file))
 
     if (fread(&info->dib.bitmap_width, min(info->dib.header_size, SZ_HEAD) - 4, 1, file)) {
 
@@ -358,65 +308,65 @@ struct bitmap* read_bmp(char* file_name) {
  */
 /* int write_bmp(BitMap* bmp, char* file_name) { */
 /*  */
-/* 	int pos, i, j; */
+/*  int pos, i, j; */
 /*  */
-/* 	uint8_t* buffer; */
+/*  uint8_t* buffer; */
 /*  */
-/* 	FILE* file = fopen(file_name, "wb"); */
+/*  FILE* file = fopen(file_name, "wb"); */
 /*  */
-/* 	if (file == NULL) { */
-/* 		return 1; */
-/* 	} */
+/*  if (file == NULL) { */
+/*      return 1; */
+/*  } */
 /*  */
-/* 	if (bmp == NULL || bmp->info == NULL) { */
-/* 		fclose(file); */
-/* 		return 1; */
-/* 	} */
+/*  if (bmp == NULL || bmp->info == NULL) { */
+/*      fclose(file); */
+/*      return 1; */
+/*  } */
 /*  */
-/* 	buffer = (uint8_t*)calloc(size_bmp(bmp->width, bmp->height), 1); */
+/*  buffer = (uint8_t*)calloc(size_bmp(bmp->width, bmp->height), 1); */
 /*  */
-/* 	if (buffer == NULL) { */
-/* 		fclose(file); */
-/* 		return 1; */
-/* 	} */
+/*  if (buffer == NULL) { */
+/*      fclose(file); */
+/*      return 1; */
+/*  } */
 /*  */
-/* 	pos = 0; */
-/* 	write(buffer, pos, i, bmp->info->magic); */
-/* 	write(buffer, pos, i, size_bmp(bmp->width, bmp->height)); */
-/* 	write(buffer, pos, i, bmp->info->unused); */
-/* 	write(buffer, pos, i, bmp->info->offset_data); */
-/* 	write(buffer, pos, i, bmp->info->header_bytes); */
-/* 	write(buffer, pos, i, bmp->width); */
-/* 	write(buffer, pos, i, bmp->height); */
-/* 	write(buffer, pos, i, bmp->info->color_planes); */
-/* 	write(buffer, pos, i, bmp->info->color_bpp); */
-/* 	write(buffer, pos, i, bmp->info->compression); */
-/* 	write(buffer, pos, i, size_data(bmp->width, bmp->height)); */
-/* 	write(buffer, pos, i, bmp->info->h_resolution); */
-/* 	write(buffer, pos, i, bmp->info->v_resolution); */
-/* 	write(buffer, pos, i, bmp->info->colors_palette); */
-/* 	write(buffer, pos, i, bmp->info->mean_palette); */
+/*  pos = 0; */
+/*  write(buffer, pos, i, bmp->info->magic); */
+/*  write(buffer, pos, i, size_bmp(bmp->width, bmp->height)); */
+/*  write(buffer, pos, i, bmp->info->unused); */
+/*  write(buffer, pos, i, bmp->info->offset_data); */
+/*  write(buffer, pos, i, bmp->info->header_bytes); */
+/*  write(buffer, pos, i, bmp->width); */
+/*  write(buffer, pos, i, bmp->height); */
+/*  write(buffer, pos, i, bmp->info->color_planes); */
+/*  write(buffer, pos, i, bmp->info->color_bpp); */
+/*  write(buffer, pos, i, bmp->info->compression); */
+/*  write(buffer, pos, i, size_data(bmp->width, bmp->height)); */
+/*  write(buffer, pos, i, bmp->info->h_resolution); */
+/*  write(buffer, pos, i, bmp->info->v_resolution); */
+/*  write(buffer, pos, i, bmp->info->colors_palette); */
+/*  write(buffer, pos, i, bmp->info->mean_palette); */
 /*  */
-/* 	for(i=bmp->height-1; i>=0; i--) { */
-/* 		for(j=0; j<(int)bmp->width; j++) { */
-/* 			buffer[pos++] = bmp->bitmap[i][j].b; */
-/* 			buffer[pos++] = bmp->bitmap[i][j].g; */
-/* 			buffer[pos++] = bmp->bitmap[i][j].r; */
-/* 		} */
-/* 		pos += bmp->width%4; */
-/* 	} */
+/*  for(i=bmp->height-1; i>=0; i--) { */
+/*      for(j=0; j<(int)bmp->width; j++) { */
+/*          buffer[pos++] = bmp->bitmap[i][j].b; */
+/*          buffer[pos++] = bmp->bitmap[i][j].g; */
+/*          buffer[pos++] = bmp->bitmap[i][j].r; */
+/*      } */
+/*      pos += bmp->width%4; */
+/*  } */
 /*  */
-/* 	if (fwrite(buffer, sizeof(uint8_t), size_bmp(bmp->width, bmp->height), file) != */
-/* 												size_bmp(bmp->width, bmp->height)) { */
+/*  if (fwrite(buffer, sizeof(uint8_t), size_bmp(bmp->width, bmp->height), file) != */
+/*                                              size_bmp(bmp->width, bmp->height)) { */
 /*  */
-/* 		fclose(file); */
-/* 		free(buffer); */
-/* 		return 1; */
-/* 	} */
-/* 	free(buffer); */
+/*      fclose(file); */
+/*      free(buffer); */
+/*      return 1; */
+/*  } */
+/*  free(buffer); */
 /*  */
-/* 	fclose(file); */
+/*  fclose(file); */
 /*  */
-/* 	return 0; */
+/*  return 0; */
 /* } */
 

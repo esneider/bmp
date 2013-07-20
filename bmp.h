@@ -8,15 +8,13 @@
 #define _BMP_H_
 
 #include <stdint.h>
-
-
-struct bitmap_info;
+#include "bmp_def.h"
 
 
 struct rgba_color {
 
     uint8_t a;
-	uint8_t r;
+    uint8_t r;
     uint8_t g;
     uint8_t b;
 };
@@ -24,11 +22,11 @@ struct rgba_color {
 
 struct bitmap {
 
-	size_t width;
-	size_t height;
+    size_t width;
+    size_t height;
 
-	struct rgba_color **bitmap;
-	struct bitmap_info *info;
+    struct rgba_color **bitmap;
+    struct bitmap_info *info;
 };
 
 
