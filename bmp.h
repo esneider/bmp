@@ -7,11 +7,16 @@
 #ifndef _BMP_H_
 #define _BMP_H_
 
+#include <stddef.h>
 #include <stdint.h>
-#include "bmp_def.h"
+#include <stdbool.h>
+#include "bmp_defs.h"
 
 
-struct rgba_color {
+/**
+ * Color for a bitmap pixel.
+ */
+struct rgba {
 
     uint8_t a;
     uint8_t r;
@@ -20,54 +25,48 @@ struct rgba_color {
 };
 
 
-struct bitmap {
+/**
+ * Bitmap data structure.
+ */
+struct bmp {
+
+    struct bmp_info *info;
 
     size_t width;
     size_t height;
 
-    struct rgba_color **bitmap;
-    struct bitmap_info *info;
+    struct rgba **bmp;
 };
 
 
 /**
- * Creates a color bitmap
+ * Create a new bitmap.
  *
- * @param width   nonzero width of the bitmap
- * @param height  nonzero height of the bitmap
- *
- * @return a pointer to a bitmap struct, or NULL if an error ocurred
+ * @return a pointer to the struct, or NULL if there was an error.
  */
-struct bitmap* new_bmp(size_t width, size_t height);
+struct bmp* bmp_new(struct bmp_info *info);
 
 
 /**
- * Frees the memory allocated for a bitmap
- *
- * @param bmp  pointer to the bitmap struct
+ * Release resources used by the bmp data structure.
  */
-void free_bmp(struct bitmap *bmp);
+void bmp_free(struct bmp *bmp);
 
 
 /**
- * Reads a bmp file
+ * Read a bmp file.
  *
- * @param file_name  name of the bmp file
- *
- * @return a pointer to a bitmap struct, or NULL if an error ocurred
+ * @return a pointer to the struct, or NULL if there was an error.
  */
-struct bitmap* read_bmp(char *file_name);
+struct bmp* bmp_read(const char *file_name);
 
 
 /**
- * Writes a 24-bit color bmp file
+ * Write a bmp file.
  *
- * @param bmp        pointer to the bitmap struct
- * @param file_name  name of the bmp file
- *
- * @return 0 if the operation was succesful, or !=0 if an error ocurred
+ * @return whether the operation was successful (true) or not (false).
  */
-/* int write_bmp(struct bitmap *bmp, char *file_name); */
+bool bmp_write(struct bmp *bmp, const char *file_name);
 
 
 #endif /* _BMP_H_ */

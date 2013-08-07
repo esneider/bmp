@@ -1,37 +1,25 @@
 /**
- * @file bmp_def.h
+ * @file bmp_defs.h
  *
  * @author Dario Sneidermanis
  */
 
-#ifndef _BMP_DEF_H_
-#define _BMP_DEF_H_
+#ifndef _BMP_DEFS_H_
+#define _BMP_DEFS_H_
 
 #include <stdint.h>
 
 
-struct rgba_color;
+/**
+ * Color for a bitmap pixel.
+ */
+struct rgba;
 
 
 /**
- * Types of bitmap compression
+ * Bitmap meta data struct definition.
  */
-enum bitmap_compression {
-
-    BMPC_RGB,       /* no compression */
-    BMPC_RLE8,      /* 8-bit run-length encoding */
-    BMPC_RLE4,      /* 4-bit run-length encoding */
-    BMPC_BITFIELDS, /* variable bit field encoding */
-    BMPC_JPEG,
-    BMPC_PNG,
-    BMPC_ALPHABITFIELDS, /* variable bit field encoding with alpha channel */
-};
-
-
-/**
- * Bitmap metadata
- */
-struct bitmap_info {
+struct bmp_info {
 
     struct bmp_header {
 
@@ -68,9 +56,24 @@ struct bitmap_info {
 
     } v3;
 
-    struct rgba_color *colors;
+    struct rgba *colors;
 };
 
 
-#endif /* _BMP_DEF_H_ */
+/**
+ * Bitmap compression modes.
+ */
+enum bmp_compression {
+
+    BMP_C_RGB,       /* no compression */
+    BMP_C_RLE8,      /* 8-bit run-length encoding */
+    BMP_C_RLE4,      /* 4-bit run-length encoding */
+    BMP_C_BITFIELDS, /* variable bit field encoding */
+    BMP_C_JPEG,
+    BMP_C_PNG,
+    BMP_C_ALPHABITFIELDS, /* variable bit field encoding with alpha channel */
+};
+
+
+#endif /* _BMP_DEFS_H_ */
 

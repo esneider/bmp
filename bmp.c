@@ -6,145 +6,69 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <stddef.h>
-#include <stdbool.h>
-
 #include "bmp.h"
+#include "bmp_info.h"
 
-
-/* Utils */
 
 static inline int min(int a, int b) {
 
     return a < b ? a : b;
 }
 
+
+/**
+ * Reverse (mirror) the bytes of a 32-bit integer.
+ */
 static inline void reverse_bytes(uint32_t *n) {
 
     *n = (*n >> 24) | ((*n >> 8) & 0xFF00) | ((*n & 0xFF00) << 8) | (*n << 24);
 }
 
-static inline void reverse_words(uint32_t *n) {
-
-    *n = (*n >> 16) | (*n << 16);
-}
-
-/* Useful sizes */
-
-static inline size_t row_bits(struct bitmap_info *info) {
-
-    return info->dib.bits_per_pixel * abs(info->dib.bitmap_width);
-}
-
-static inline void set_bitmap_size(struct bitmap_info *info) {
-
-    info->dib.bitmap_size = abs(info->dib.bitmap_height) * (((row_bits(info) + 31) >> 3) & ~3);
-}
-
-static inline void set_file_size(struct bitmap_info *info) {
-
-    info->bmp.file_size = info->bmp.bitmap_offset + info->dib.bitmap_size;
-}
-
-
-/* Default data */
-
-static const struct bitmap_info default_info = {
-
-    .bmp = {
-        .magic_signature = 19778,
-        .file_size = 0, /* fill me */
-        .reserved = 0,
-        .bitmap_offset = 54,
-    },
-
-    .dib = {
-        .header_size = 40,
-        .bitmap_width = 0, /* fill me */
-        .bitmap_height = 0, /* fill me */
-        .color_planes = 1,
-        .bits_per_pixel = 32,
-        .compression = BMPC_RGB,
-        .bitmap_size = 0, /* fill me */
-        .x_pixels_per_meter = 2835,
-        .y_pixels_per_meter = 2835,
-        .used_colors = 0,
-        .important_colors = 0,
-    },
-
-    .v3 = {
-        .red_mask = 0,
-        .green_mask = 0,
-        .blue_mask = 0,
-        .alpha_mask = 0,
-    },
-
-    .colors = NULL,
-};
-
 
 /**
- * Creates a bitmap
+ * Create a new bitmap.
  *
- * @param width   nonzero width of the bitmap
- * @param height  nonzero height of the bitmap
- *
- * @return a pointer to a bitmap struct, or NULL if an error ocurred
+ * @return a pointer to the struct, or NULL if there was an error.
  */
-struct bitmap* new_bmp(size_t width, size_t height) {
+struct bmp* bmp_new(struct bmp_info *info) {
 
-    struct bitmap *bmp = calloc(1, sizeof(*bmp));
+    struct bmp *bmp;
 
-    if (width && height && bmp)
-    if ((bmp->info      = malloc(sizeof(*bmp->info))))
-    if ((bmp->bitmap    = malloc(height * sizeof(*bmp->bitmap))))
-    if ((bmp->bitmap[0] = malloc(height * width * sizeof(*bmp->bitmap[0])))) {
+    if ((bmp = malloc(sizeof(*bmp)))) {
 
-        /* Init bmp->bitmap */
+        bmp->info = info;
+        bmp->width = info.dib.bitmap_width;
+        bmp->height = info.dib.bitmap_height;
 
-        for (size_t row = 0; row < height - 1; row++) {
+        if ((bmp->bmp = malloc(bmp->height * sizeof(*bmp->bmp))))
+        if ((bmp->bmp[0] = malloc(bmp->height * bmp->width * sizeof(*bmp->bmp[0])))) {
 
-            bmp->bitmap[row + 1] = bmp->bitmap[row] + width;
+            for (size_t row = 0; row < bmp->height - 1; row++) {
+
+                bmp->bitmap[row + 1] = bmp->bitmap[row] + bmp->width;
+            }
         }
-
-        /* Init bmp */
-
-        bmp->width = width;
-        bmp->height = height;
-
-        /* Init headers */
-
-        *bmp->info = default_info;
-
-        bmp->info->dib.bitmap_width = width;
-        bmp->info->dib.bitmap_height = height;
-
-        set_bitmap_size(bmp->info);
-        set_file_size(bmp->info);
-
-        return bmp;
     }
 
-    free_bmp(bmp);
-
+    bmp_free(bmp);
     return NULL;
 }
 
 
 /**
- * Frees the memory allocated for a bitmap
- *
- * @param bmp  pointer to the bitmap struct
+ * Release resources used by the bmp data structure.
  */
-void free_bmp(struct bitmap *bmp) {
+void bmp_free(struct bmp *bmp) {
 
     if (bmp) {
 
-        if (bmp->bitmap) free(bmp->bitmap[0]);
-        if (bmp->info) free(bmp->info->colors);
+        if (bmp->bmp) {
 
-        free(bmp->bitmap);
-        free(bmp->info);
+            free(bmp->bmp[0]);
+            free(bmp->bmp);
+        }
+
+        bmp_info_free(bmp->info);
         free(bmp);
     }
 }
